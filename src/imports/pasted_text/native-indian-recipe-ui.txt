@@ -1,0 +1,132 @@
+Project Title: **Native Indian Recipe**
+
+Create a **complete modern web application UI design system and screens** for a project called **Native Indian Recipe**, a platform that helps users create and manage traditional Indian recipes using voice input, image uploads, and PDF export.
+
+Design the interface to be **clean, modern, and culturally inspired by Indian cuisine**.
+
+---
+
+1. Design System
+   Create a small design system including:
+
+* Color palette inspired by Indian food culture (saffron orange, turmeric yellow, leaf green, warm beige)
+* Primary and secondary buttons
+* Input fields
+* Cards for recipes
+* Icons for voice, upload, edit, save, and export
+* Typography hierarchy (Heading, Subheading, Body text)
+
+---
+
+2. Authentication Screens
+   Design:
+   Login Page
+   Sign Up Page
+
+Features:
+
+* Email / Username input
+* Password input
+* Google login option
+* "Forgot Password" link
+* Cooking-themed illustration
+* Clean card layout centered on screen
+
+---
+
+3. Dashboard
+   Create a **user dashboard** where users can manage recipes.
+
+Sections:
+
+* Sidebar navigation
+* Top navigation bar
+* Recipe cards grid
+* Button: "Create New Recipe"
+
+Sidebar Items:
+
+* Dashboard
+* Create Recipe
+* My Recipes
+* Voice Recipe
+* Export
+
+---
+
+4. Voice Interaction Page
+   Design a **voice-based recipe creation interface**.
+
+Include:
+
+* Large microphone button in center
+* Animation or visual feedback when listening
+* Text area showing voice transcription
+* Buttons: Start Recording / Stop Recording
+* Option to convert transcription into recipe format
+
+---
+
+5. Recipe Creation & Editing Page
+   Create a structured editor where users can write and modify recipes.
+
+Sections:
+
+* Recipe title
+* Region/state tag (Kerala, Punjab, Tamil Nadu, etc.)
+* Ingredients list with bullet points
+* Step-by-step instructions
+* Upload food image
+* Save and Preview buttons
+
+---
+
+6. Image Upload UI
+   Include a drag-and-drop upload component.
+
+Features:
+
+* Upload recipe image
+* Image preview card
+* Replace or delete image button
+* Upload progress indicator
+
+---
+
+7. Recipe Preview Page
+   Show how the final recipe will appear.
+
+Layout:
+
+* Recipe title
+* Food image
+* Ingredients section
+* Step-by-step cooking instructions
+* Regional tag
+* Buttons: Edit / Export as PDF
+
+---
+
+8. PDF Export Layout
+   Design a **clean printable recipe layout**.
+
+Include:
+
+* Recipe title
+* Food image
+* Ingredients
+* Cooking instructions
+* Traditional recipe description
+* Export button
+
+---
+
+Design Style
+
+* Minimal modern UI
+* Warm Indian food inspired palette
+* Rounded cards and soft shadows
+* Clean spacing
+* Mobile-friendly responsive layout
+
+Create **high-fidelity UI screens with reusable components suitable for Figma prototypes.**
