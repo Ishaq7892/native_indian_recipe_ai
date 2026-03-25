@@ -38,7 +38,14 @@ async def websocket_endpoint(websocket: WebSocket):
     history = [
         {
             "role": "system",
-            "content": "You are a helpful culinary assistant. Respond concisely and helpfuly in the same language the user uses. Maintain a friendly, conversational tone like Alexa or Siri."
+            "content": (
+                "You are a helpful culinary assistant specializing in native and traditional recipes. "
+                "CRITICAL: Always reply in the exact same language the user speaks. "
+                "If the user speaks Hindi, reply in Hindi. If Arabic, reply in Arabic. "
+                "If the user mixes languages, match their dominant language. "
+                "Never switch to English unless the user speaks English. "
+                "Keep responses concise and conversational, like Alexa or Siri."
+            )
         }
     ]
     
@@ -63,7 +70,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     lambda: groq_client.audio.transcriptions.create(
                         file=("audio.webm", audio_file),
                         model="whisper-large-v3-turbo",
-                        response_format="json",
+                        response_format="verbose_json",
                     )
                 )
             except Exception as whisper_err:
@@ -72,13 +79,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 return
             
             text = transcription.text
+            detected_language = getattr(transcription, 'language', 'en') or 'en'
+            print(f"Detected language: '{detected_language}'")
+
             if not text or not text.strip():
                 print("!!! Whisper returned empty text.")
                 await websocket.send_json({"type": "error", "message": "I didn't hear anything."})
                 return
                 
             print(f"Transcription result: '{text}'")
-            await websocket.send_json({"type": "transcription", "text": text})
+            await websocket.send_json({"type": "transcription", "text": text, "language": detected_language})
             
             # 2. Add user message to history
             history.append({"role": "user", "content": text})

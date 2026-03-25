@@ -2,12 +2,49 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../components/ui/button';
 import { Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 
+// Maps Whisper ISO 639-1 language codes (and full names) to BCP-47 tags for SpeechSynthesis
+const LANGUAGE_TO_BCP47: Record<string, string> = {
+    'english': 'en-US',   'en': 'en-US',
+    'hindi':   'hi-IN',   'hi': 'hi-IN',
+    'arabic':  'ar-SA',   'ar': 'ar-SA',
+    'french':  'fr-FR',   'fr': 'fr-FR',
+    'spanish': 'es-ES',   'es': 'es-ES',
+    'german':  'de-DE',   'de': 'de-DE',
+    'chinese': 'zh-CN',   'zh': 'zh-CN',
+    'japanese':'ja-JP',   'ja': 'ja-JP',
+    'korean':  'ko-KR',   'ko': 'ko-KR',
+    'portuguese':'pt-BR', 'pt': 'pt-BR',
+    'russian': 'ru-RU',   'ru': 'ru-RU',
+    'italian': 'it-IT',   'it': 'it-IT',
+    'dutch':   'nl-NL',   'nl': 'nl-NL',
+    'turkish': 'tr-TR',   'tr': 'tr-TR',
+    'urdu':    'ur-PK',   'ur': 'ur-PK',
+    'bengali': 'bn-BD',   'bn': 'bn-BD',
+    'tamil':   'ta-IN',   'ta': 'ta-IN',
+    'telugu':  'te-IN',   'te': 'te-IN',
+    'marathi': 'mr-IN',   'mr': 'mr-IN',
+    'gujarati':'gu-IN',   'gu': 'gu-IN',
+    'punjabi': 'pa-IN',   'pa': 'pa-IN',
+    'swahili': 'sw-KE',   'sw': 'sw-KE',
+    'malay':   'ms-MY',   'ms': 'ms-MY',
+    'indonesian':'id-ID', 'id': 'id-ID',
+    'vietnamese':'vi-VN', 'vi': 'vi-VN',
+    'thai':    'th-TH',   'th': 'th-TH',
+    'persian': 'fa-IR',   'fa': 'fa-IR',
+    'polish':  'pl-PL',   'pl': 'pl-PL',
+};
+
 const VoiceRecipe: React.FC = () => {
     const [isRecording, setIsRecording] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSpeaking, setIsProcessingSpeaking] = useState(false);
+    const [isConnected, setIsConnected] = useState(false);
+    const [detectedLanguage, setDetectedLanguage] = useState<string>('');
     const [conversation, setConversation] = useState<{role: 'bot' | 'user' | 'error', text: string}[]>([]);
     const [continuousMode, setContinuousMode] = useState(true);
+
+    // Ref so speak() always reads the latest language without stale closure issues
+    const detectedLanguageRef = useRef<string>('');
     
     const ws = useRef<WebSocket | null>(null);
     const mediaRecorder = useRef<MediaRecorder | null>(null);
@@ -45,6 +82,9 @@ const VoiceRecipe: React.FC = () => {
         window.speechSynthesis.cancel();
         
         const utterance = new SpeechSynthesisUtterance(text);
+        // Set the language so the browser picks the correct TTS voice
+        const langKey = detectedLanguageRef.current.toLowerCase();
+        utterance.lang = LANGUAGE_TO_BCP47[langKey] || langKey || 'en-US';
         utterance.onstart = () => setIsProcessingSpeaking(true);
         utterance.onend = () => {
             setIsProcessingSpeaking(false);
@@ -140,23 +180,31 @@ const VoiceRecipe: React.FC = () => {
                 
                 ws.current.onopen = () => {
                     console.log('WebSocket Connected successfully');
+                    setIsConnected(true);
                     setupWebSocketHandlers();
                     
                     mediaRecorder.current?.start();
                     setIsRecording(true);
                     isRecordingRef.current = true;
                     requestAnimationFrame(checkSilence);
-                    speak("I'm listening.");
                 };
 
                 ws.current.onclose = () => {
                     console.log('WebSocket disconnected');
+                    setIsConnected(false);
                     setIsRecording(false);
                     isRecordingRef.current = false;
                 };
 
                 ws.current.onerror = (error) => {
                     console.error('WebSocket Error:', error);
+                    setIsConnected(false);
+                    setIsRecording(false);
+                    isRecordingRef.current = false;
+                    setConversation(prev => [...prev, {
+                        role: 'error',
+                        text: 'Could not connect to the voice server. Make sure the backend is running on port 8000.'
+                    }]);
                 };
             } else {
                 console.log('WebSocket already open, starting recorder...');
@@ -164,7 +212,6 @@ const VoiceRecipe: React.FC = () => {
                 setIsRecording(true);
                 isRecordingRef.current = true;
                 requestAnimationFrame(checkSilence);
-                speak("I'm listening.");
             }
             
         } catch (err) {
@@ -180,6 +227,10 @@ const VoiceRecipe: React.FC = () => {
             const data = JSON.parse(event.data);
             console.log('Received message from backend:', data);
             if (data.type === 'transcription') {
+                if (data.language) {
+                    detectedLanguageRef.current = data.language;
+                    setDetectedLanguage(data.language);
+                }
                 setConversation(prev => [...prev, {role: 'user', text: data.text}]);
             } else if (data.type === 'response') {
                 setIsProcessing(false);
@@ -214,15 +265,23 @@ const VoiceRecipe: React.FC = () => {
         isRecordingRef.current = false;
     };
 
+    const forceStopAll = () => {
+        console.log('Force stopping everything...');
+        manualStopRef.current = true;
+        // Stop recording
+        stopRecording(true);
+        // Stop any ongoing speech
+        window.speechSynthesis.cancel();
+        setIsProcessingSpeaking(false);
+        // Clear processing state
+        setIsProcessing(false);
+    };
+
+    const isActive = isRecording || isSpeaking || isProcessing;
+
     const handleToggleRecording = () => {
-        if (isRecording) {
-            stopRecording(true);
-        } else if (isSpeaking) {
-            // Stop the bot from speaking
-            window.speechSynthesis.cancel();
-            setIsProcessingSpeaking(false);
-            manualStopRef.current = true;
-            console.log('Bot speech manually stopped');
+        if (isActive) {
+            forceStopAll();
         } else {
             startRecording();
         }
@@ -231,7 +290,21 @@ const VoiceRecipe: React.FC = () => {
     return (
         <div className="p-4 flex flex-col h-full max-w-4xl mx-auto">
             <header className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-foreground">AI Kitchen Assistant</h1>
+                <div className="flex items-center gap-3">
+                    <h1 className="text-3xl font-bold text-foreground">AI Kitchen Assistant</h1>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                        isConnected
+                            ? 'bg-green-100 text-green-700 border border-green-200'
+                            : 'bg-gray-100 text-gray-500 border border-gray-200'
+                    }`}>
+                        {isConnected ? '● Connected' : '○ Disconnected'}
+                    </span>
+                    {detectedLanguage && (
+                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200 uppercase">
+                            {detectedLanguage}
+                        </span>
+                    )}
+                </div>
                 <Button 
                     variant="ghost" 
                     size="sm" 
@@ -245,18 +318,17 @@ const VoiceRecipe: React.FC = () => {
             
             <div className="flex flex-col items-center justify-center gap-6 mb-8 p-8 bg-card rounded-2xl shadow-sm border border-border">
                 <div className="relative">
-                    {(isRecording || isSpeaking) && (
+                    {isActive && (
                         <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
                     )}
                     <Button 
                         onClick={handleToggleRecording} 
                         size="lg"
-                        disabled={isProcessing}
                         className={`w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-lg ${
-                            (isRecording || isSpeaking) ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'
-                        } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            isActive ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'
+                        }`}
                     >
-                        {(isRecording || isSpeaking) ? <MicOff className="h-10 w-10 text-white" /> : <Mic className="h-10 w-10 text-white" />}
+                        {isActive ? <MicOff className="h-10 w-10 text-white" /> : <Mic className="h-10 w-10 text-white" />}
                     </Button>
                 </div>
                 
@@ -265,7 +337,7 @@ const VoiceRecipe: React.FC = () => {
                         {isProcessing ? "Thinking..." : isSpeaking ? "Speaking..." : isRecording ? "I'm listening..." : "Tap to talk"}
                     </p>
                     <p className="text-muted-foreground text-sm mt-1">
-                        {isRecording ? "I will automatically respond when you stop talking" : "Say something like 'How do I make pancakes?'"}
+                        {isActive ? "Tap the mic to stop" : "Say something like 'How do I make pancakes?'"}
                     </p>
                 </div>
             </div>
